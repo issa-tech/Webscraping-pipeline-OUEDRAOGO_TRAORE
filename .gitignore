@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Environnements
+.env
+.venv
+venv/
+ENV/
+
+# Données (ne pas versionner les données brutes)
+raw_data.json
+clean_data.json
+*.csv
+*.sqlite
+
+# Docker
+.docker/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Grafana (volumes Docker)
+monitoring/grafana/data/
