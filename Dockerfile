@@ -23,4 +23,4 @@ COPY . .
 EXPOSE 5000
 
 # Commande par défaut (Flask)
-CMD ["python", "-m", "flask", "--app", "api/app.py", "run", "--host=0.0.0.0", "--port=5000"]
+CMD ["python", "run.py"]

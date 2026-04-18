@@ -1,0 +1,234 @@
+{
+  "title": "Jiji Mode CI — Monitoring",
+  "uid": "jiji-mode-dashboard-v2",
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total Annonces scrapées",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "red",    "value": 0   },
+              { "color": "yellow", "value": 50  },
+              { "color": "green",  "value": 100 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus" },
+        "expr": "jiji_items_scraped_total",
+        "legendFormat": "Annonces"
+      }]
+    },
+    {
+      "id": 2,
+      "title": "Scrapings réussis",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "red",   "value": 0 },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus" },
+        "expr": "jiji_scrape_total{status=\"success\"}",
+        "legendFormat": "Succès"
+      }]
+    },
+    {
+      "id": 3,
+      "title": "CPU utilisé (secondes)",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green",  "value": 0   },
+              { "color": "yellow", "value": 50  },
+              { "color": "red",    "value": 200 }
+            ]
+          },
+          "unit": "s"
+        }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus" },
+        "expr": "process_cpu_seconds_total",
+        "legendFormat": "CPU"
+      }]
+    },
+    {
+      "id": 4,
+      "title": "Mémoire utilisée",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green",  "value": 0          },
+              { "color": "yellow", "value": 100000000  },
+              { "color": "red",    "value": 400000000  }
+            ]
+          },
+          "unit": "bytes"
+        }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus" },
+        "expr": "process_resident_memory_bytes",
+        "legendFormat": "Mémoire RAM"
+      }]
+    },
+    {
+      "id": 5,
+      "title": "Annonces scrapées — Évolution",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 4, "w": 14, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "jiji_items_scraped_total",
+          "legendFormat": "Total annonces"
+        },
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "jiji_scrape_total{status=\"success\"}",
+          "legendFormat": "Scrapings réussis"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Complétion du scraping (annonces / 500)",
+      "type": "gauge",
+      "gridPos": { "x": 14, "y": 4, "w": 10, "h": 8 },
+      "options": {
+        "minValue": 0,
+        "maxValue": 500,
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "red",    "value": 0   },
+              { "color": "yellow", "value": 100 },
+              { "color": "green",  "value": 400 }
+            ]
+          },
+          "min": 0,
+          "max": 500,
+          "unit": "short"
+        }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus" },
+        "expr": "jiji_items_scraped_total",
+        "legendFormat": "Annonces"
+      }]
+    },
+    {
+      "id": 7,
+      "title": "Garbage Collector Python — Objets collectés",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "rate(python_gc_objects_collected_total{generation=\"0\"}[1m])",
+          "legendFormat": "GC Gen 0"
+        },
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "rate(python_gc_objects_collected_total{generation=\"1\"}[1m])",
+          "legendFormat": "GC Gen 1"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Scrapings — Historique",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "drawStyle": "bars"
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "increase(jiji_scrape_total{status=\"success\"}[5m])",
+          "legendFormat": "Scrapings / 5min"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 38
+}

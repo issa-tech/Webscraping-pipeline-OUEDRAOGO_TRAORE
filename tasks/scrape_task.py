@@ -1,82 +1,113 @@
 """
-tasks/scrape_task.py — Tâche Celery de scraping
+tasks/scrape_task.py — Tâche Celery de scraping asynchrone
 ENSEA AS Data Science — Projet Web Scraping
 """
 
-import os
 import sys
-import logging
-from datetime import datetime
+import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+# S'assurer que /app est dans le path Python du worker
+sys.path.insert(0, "/app")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tasks.celery_app import celery_app
+import math
+import logging
 
 logger = logging.getLogger(__name__)
 
 
+def clean_val(v):
+    if v is None:
+        return None
+    if isinstance(v, float) and math.isnan(v):
+        return None
+    return v
+
+
 @celery_app.task(bind=True, name="tasks.scrape_task.scrape_task")
-def scrape_task(self, max_items: int = 100):
-    """
-    Tâche Celery : scraping + nettoyage + insertion en base.
-    Appelée via POST /api/scrape/async ou automatiquement par Celery Beat.
-    """
-    from api.app import create_app, db
+def scrape_task(self, max_items=100):
+    """Tâche Celery : scrape Jiji.ci, nettoie, insère en base."""
+
+    # Imports tardifs pour éviter les imports circulaires
+    import sys, os
+    sys.path.insert(0, "/app")
+
+    from api.app import create_app, db, SCRAPE_COUNT, ITEMS_SCRAPED
     from api.models import Annonce, ScrapeLog
-    from scraper.spider  import scrape_jiji_mode
+    from scraper.spider import scrape_jiji_mode
     from scraper.cleaner import clean_data
+    from datetime import datetime
 
     app = create_app()
 
     with app.app_context():
-        log = ScrapeLog(status="running", task_id=self.request.id)
+        log = ScrapeLog(status="running")
         db.session.add(log)
         db.session.commit()
 
         try:
-            # Mise à jour du statut Celery
-            self.update_state(state="PROGRESS", meta={"step": "scraping"})
-            logger.info(f"[Task {self.request.id}] Démarrage scraping ({max_items} items)")
-
+            # 1. Scraping
+            logger.info(f"Démarrage du scraping Jiji.ci (max {max_items} items)...")
             raw_items = scrape_jiji_mode(max_items=max_items)
-            logger.info(f"[Task {self.request.id}] {len(raw_items)} items bruts collectés")
+            logger.info(f"{len(raw_items)} items bruts collectés")
 
-            self.update_state(state="PROGRESS", meta={"step": "cleaning"})
-            df          = clean_data(raw_items)
+            # 2. Nettoyage
+            df = clean_data(raw_items)
             clean_items = df.where(df.notna(), None).to_dict(orient="records")
 
-            self.update_state(state="PROGRESS", meta={"step": "saving"})
+            # 3. Insertion en base (sans doublons)
             saved = 0
             for item in clean_items:
-                if item.get("link") and Annonce.query.filter_by(link=item["link"]).first():
+                link = clean_val(item.get("link"))
+                if link and Annonce.query.filter_by(link=link).first():
                     continue
                 annonce = Annonce(
-                    title       = item.get("title") or "Sans titre",
-                    price_value = item.get("price_value"),
-                    currency    = item.get("currency", "FCFA"),
-                    city        = item.get("city", "Non précisé"),
-                    district    = item.get("district"),
-                    subcategory = item.get("subcategory", "autre"),
-                    link        = item.get("link"),
-                    image_url   = item.get("image_url"),
-                    source      = item.get("source", "jiji.co.ci"),
+                    item_id     = clean_val(item.get("item_id")),
+                    title       = clean_val(item.get("title")) or "Sans titre",
+                    price_value = clean_val(item.get("price_value")),
+                    currency    = clean_val(item.get("currency")) or "FCFA",
+                    city        = clean_val(item.get("city")) or "Non précisé",
+                    district    = clean_val(item.get("district")),
+                    category    = clean_val(item.get("category")) or "mode",
+                    subcategory = clean_val(item.get("subcategory")) or "autre",
+                    link        = link,
+                    image_url   = clean_val(item.get("image_url")),
+                    source      = clean_val(item.get("source")) or "jiji.co.ci",
                 )
                 db.session.add(annonce)
                 saved += 1
+
             db.session.commit()
 
+            # 4. Métriques Prometheus
+            try:
+                SCRAPE_COUNT.labels(status="success").inc()
+                ITEMS_SCRAPED.inc(saved)
+            except Exception:
+                pass
+
+            # 5. Log final
             log.finished_at = datetime.utcnow()
             log.items_found = len(raw_items)
             log.items_saved = saved
             log.status      = "success"
             db.session.commit()
 
-            logger.info(f"[Task {self.request.id}] Terminé : {saved} items sauvegardés")
-            return {"status": "success", "items_found": len(raw_items), "items_saved": saved}
+            logger.info(f"Tâche terminée : {saved} items sauvegardés")
+            return {
+                "status":      "success",
+                "items_found": len(raw_items),
+                "items_saved": saved,
+            }
 
         except Exception as e:
-            log.status    = "error"
-            log.error_msg = str(e)
-            db.session.commit()
-            logger.error(f"[Task {self.request.id}] Erreur : {e}")
+            logger.error(f"Erreur tâche Celery : {e}")
+            try:
+                log.status    = "error"
+                log.error_msg = str(e)
+                db.session.commit()
+                SCRAPE_COUNT.labels(status="error").inc()
+            except Exception:
+                pass
             raise

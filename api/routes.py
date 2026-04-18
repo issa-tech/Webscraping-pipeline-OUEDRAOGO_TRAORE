@@ -1,15 +1,6 @@
 """
 api/routes.py — Endpoints REST + Swagger
 ENSEA AS Data Science — Projet Web Scraping
-
-Endpoints :
-  GET  /api/data/                 — toutes les annonces (paginées)
-  GET  /api/data/<id>             — une annonce par ID
-  GET  /api/data/search?query=... — recherche par mot-clé
-  GET  /api/data/stats            — statistiques globales
-  POST /api/scrape/               — scraping synchrone
-  POST /api/scrape/async          — scraping asynchrone (Celery)
-  GET  /api/scrape/tasks/<id>     — statut d'une tâche Celery
 """
 
 from flask import Blueprint, request
@@ -85,7 +76,6 @@ scrape_model = ns_scrape.model("ScrapeResult", {
 
 # ── Helper : nettoyage NaN ─────────────────────────────────────────────────────
 def clean_val(v):
-    """Convertit NaN en None pour éviter les erreurs JSON."""
     if v is None:
         return None
     if isinstance(v, float) and math.isnan(v):
@@ -95,10 +85,8 @@ def clean_val(v):
 
 # ── Helper : insertion en base ─────────────────────────────────────────────────
 def save_items_to_db(items: list) -> int:
-    """Insère les annonces nettoyées en base, ignore les doublons."""
     saved = 0
     for item in items:
-        # Ignorer si lien déjà en base
         link = clean_val(item.get("link"))
         if link and Annonce.query.filter_by(link=link).first():
             continue
@@ -131,18 +119,22 @@ class AnnonceList(Resource):
     @ns.doc("list_annonces", params={
         "page":        "Numéro de page (défaut: 1)",
         "limit":       "Items par page (défaut: 20, max: 100)",
+        "per_page":    "Items par page (alias de limit)",
         "subcategory": "Filtrer par sous-catégorie",
         "city":        "Filtrer par ville",
     })
     def get(self):
         """Récupérer toutes les annonces avec pagination et filtres."""
-        page        = request.args.get("page",  1,  type=int)
-        per_page    = min(request.args.get("limit", 20, type=int), 100)
+        page        = request.args.get("page", 1, type=int)
+        per_page    = min(
+            request.args.get("per_page",
+                request.args.get("limit", 20, type=int),
+            type=int), 100
+        )
         subcategory = request.args.get("subcategory")
         city        = request.args.get("city")
 
         query = Annonce.query
-
         if subcategory:
             query = query.filter(Annonce.subcategory == subcategory)
         if city:
@@ -222,21 +214,18 @@ class AnnonceStats(Resource):
             func.count(Annonce.price_value),
         ).filter(Annonce.price_value.isnot(None)).first()
 
-        # Distribution par ville
         villes = db.session.query(
             Annonce.city, func.count(Annonce.id)
         ).group_by(Annonce.city).order_by(
             func.count(Annonce.id).desc()
         ).limit(10).all()
 
-        # Distribution par sous-catégorie
         subcats = db.session.query(
             Annonce.subcategory, func.count(Annonce.id)
         ).group_by(Annonce.subcategory).order_by(
             func.count(Annonce.id).desc()
         ).all()
 
-        # Dernière collecte
         last = Annonce.query.order_by(Annonce.scraped_at.desc()).first()
 
         return {
@@ -246,8 +235,8 @@ class AnnonceStats(Resource):
             "prix_median":       None,
             "prix_min":          float(prix_stats[1]) if prix_stats[1] else None,
             "prix_max":          float(prix_stats[2]) if prix_stats[2] else None,
-            "villes":            {v: c for v, c in villes},
-            "sous_categories":   {s: c for s, c in subcats},
+            "villes":            {str(v): int(c) for v, c in villes},
+            "sous_categories":   {str(s): int(c) for s, c in subcats},
             "derniere_collecte": last.scraped_at.isoformat() if last else None,
         }, 200
 
@@ -275,14 +264,13 @@ class ScrapeSync(Resource):
             clean_items = df.where(df.notna(), None).to_dict(orient="records")
             saved       = save_items_to_db(clean_items)
 
-            # ── Incrémenter métriques Prometheus ──────────────────────────────
             SCRAPE_COUNT.labels(status="success").inc()
             ITEMS_SCRAPED.inc(saved)
 
-            log.finished_at  = datetime.utcnow()
-            log.items_found  = len(raw_items)
-            log.items_saved  = saved
-            log.status       = "success"
+            log.finished_at = datetime.utcnow()
+            log.items_found = len(raw_items)
+            log.items_saved = saved
+            log.status      = "success"
             db.session.commit()
 
             return {
@@ -296,14 +284,11 @@ class ScrapeSync(Resource):
             log.status    = "error"
             log.error_msg = str(e)
             db.session.commit()
-
-            # ── Compter les erreurs aussi ──────────────────────────────────────
             try:
                 from api.app import SCRAPE_COUNT
                 SCRAPE_COUNT.labels(status="error").inc()
             except Exception:
                 pass
-
             return {"error": str(e)}, 500
 
 
@@ -318,7 +303,7 @@ class ScrapeAsync(Resource):
             task = scrape_task.delay()
             return {
                 "message": "Tâche de scraping lancée",
-                "task_id": task.id,
+                "task_id": str(task.id),
                 "status":  "pending",
             }, 202
         except Exception as e:
@@ -336,14 +321,37 @@ class TaskStatus(Resource):
             from tasks.celery_app import celery_app
             task = celery_app.AsyncResult(task_id)
 
-            result = None
-            if task.ready():
-                result = task.result
+            response = {
+                "task_id": str(task_id),
+                "status":  str(task.state),
+            }
 
-            return {
-                "task_id": task_id,
-                "status":  task.status,
-                "result":  result,
-            }, 200
+            if task.state == "SUCCESS":
+                raw = task.result
+                # S'assurer que le résultat est sérialisable
+                if isinstance(raw, dict):
+                    response["result"] = {
+                        k: (str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v)
+                        for k, v in raw.items()
+                    }
+                elif raw is not None:
+                    response["result"] = str(raw)
+
+            elif task.state == "FAILURE":
+                # task.info contient l'exception — on la convertit en string
+                response["error"] = str(task.info) if task.info else "Erreur inconnue"
+
+            elif task.state == "PENDING":
+                response["message"] = "Tâche en attente ou ID inconnu"
+
+            elif task.state == "STARTED":
+                response["message"] = "Tâche en cours d'exécution"
+
+            return response, 200
+
         except Exception as e:
-            return {"error": str(e)}, 500
+            return {
+                "task_id": str(task_id),
+                "status":  "UNKNOWN",
+                "error":   str(e),
+            }, 200

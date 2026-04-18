@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MODE CI — Analyse du Marché de la Mode en Côte d'Ivoire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Raleway:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --gold: #c9a96e;
+  --gold-light: #e8d5aa;
+  --black: #080808;
+  --dark: #111111;
+  --dark2: #1a1a1a;
+  --grey: #2a2a2a;
+  --text: #e8e0d4;
+  --text-dim: #9a9080;
+  --femme: #e8a4b8;
+  --femme-dark: #c26e8a;
+  --homme: #7ab8d8;
+  --homme-dark: #3a7a9c;
+  --enfant: #a8d89a;
+  --enfant-dark: #5a9a4a;
+  --general: #c9a96e;
+  --nav-h: 72px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Raleway', sans-serif;
+  background: var(--black);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── LOADER ─────────────────────────────────────── */
+#loader {
+  position: fixed; inset: 0;
+  background: var(--black);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  transition: opacity 0.6s;
+}
+#loader.hidden { opacity: 0; pointer-events: none; }
+.loader-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 300;
+  color: var(--gold);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+.loader-bar {
+  width: 200px; height: 1px;
+  background: var(--grey);
+  position: relative;
+  overflow: hidden;
+}
+.loader-bar::after {
+  content: '';
+  position: absolute;
+  left: -100%; top: 0;
+  width: 100%; height: 100%;
+  background: var(--gold);
+  animation: loadbar 1.8s ease-in-out infinite;
+}
+@keyframes loadbar { to { left: 100%; } }
+#loader-msg {
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+/* ─── NAVIGATION ─────────────────────────────────── */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--nav-h);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  background: rgba(8,8,8,0.92);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(201,169,110,0.15);
+}
+.nav-brand {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--gold);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: default;
+}
+.nav-brand span {
+  font-weight: 300;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  display: block;
+  letter-spacing: 0.3em;
+}
+.nav-tabs {
+  display: flex;
+  gap: 4px;
+}
+.nav-tab {
+  padding: 8px 20px;
+  font-family: 'Raleway', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  transition: all 0.3s;
+  position: relative;
+  background: none;
+}
+.nav-tab:hover { color: var(--text); border-color: rgba(201,169,110,0.2); }
+.nav-tab.active { color: var(--gold); border-color: var(--gold); background: rgba(201,169,110,0.05); }
+.nav-tab .tab-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.nav-right { font-size: 0.65rem; letter-spacing: 0.15em; color: var(--text-dim); text-align: right; }
+#live-count { color: var(--gold); font-size: 1rem; font-family: 'Cormorant Garamond', serif; display: block; }
+
+/* ─── PAGE SYSTEM ────────────────────────────────── */
+.page {
+  display: none;
+  min-height: 100vh;
+  padding-top: var(--nav-h);
+  animation: fadeIn 0.5s ease;
+}
+.page.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ─── HERO SECTION ───────────────────────────────── */
+.hero {
+  position: relative;
+  height: 55vh;
+  min-height: 380px;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: brightness(0.35);
+  transition: transform 8s ease;
+}
+.page.active .hero-bg { transform: scale(1.04); }
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(8,8,8,1) 0%, rgba(8,8,8,0.3) 50%, rgba(8,8,8,0.1) 100%);
+}
+.hero-content {
+  position: relative;
+  z-index: 2;
+  padding: 48px 60px;
+  width: 100%;
+}
+.hero-tag {
+  font-size: 0.65rem;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 12px;
+}
+.hero-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  font-weight: 300;
+  line-height: 1.05;
+  color: #fff;
+}
+.hero-title em { font-style: italic; color: var(--gold); }
+.hero-subtitle {
+  margin-top: 12px;
+  font-size: 0.8rem;
+  letter-spacing: 0.15em;
+  color: var(--text-dim);
+  font-weight: 300;
+}
+
+/* ─── MAIN CONTENT ───────────────────────────────── */
+.page-content { padding: 60px; }
+
+/* ─── KPI GRID ───────────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1px;
+  background: rgba(201,169,110,0.1);
+  border: 1px solid rgba(201,169,110,0.1);
+  margin-bottom: 60px;
+}
+.kpi-card {
+  background: var(--dark);
+  padding: 32px 28px;
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+  transition: background 0.3s;
+}
+.kpi-card:hover { background: var(--dark2); }
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent, var(--gold));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s ease;
+}
+.kpi-card:hover::before { transform: scaleX(1); }
+.kpi-icon {
+  font-size: 1.4rem;
+  margin-bottom: 16px;
+  opacity: 0.7;
+}
+.kpi-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+.kpi-value {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  font-weight: 300;
+  color: #fff;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.kpi-value .kpi-unit {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  font-family: 'Raleway', sans-serif;
+  font-weight: 300;
+}
+.kpi-sub {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+/* ─── SECTION HEADER ─────────────────────────────── */
+.section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  margin-bottom: 32px;
+}
+.section-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.6rem;
+  font-weight: 300;
+  color: #fff;
+  letter-spacing: 0.05em;
+}
+.section-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, rgba(201,169,110,0.3), transparent);
+}
+.section-count {
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+}
+
+/* ─── CHARTS GRID ────────────────────────────────── */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 24px;
+  margin-bottom: 60px;
+}
+.chart-card {
+  background: var(--dark);
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 28px;
+  position: relative;
+}
+.chart-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 40px; height: 1px;
+  background: var(--accent, var(--gold));
+}
+.chart-title {
+  font-size: 0.65rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 20px;
+}
+.chart-wrap { position: relative; height: 220px; }
+
+/* ─── BARS ───────────────────────────────────────── */
+.bar-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.bar-item {}
+.bar-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.bar-name { font-size: 0.7rem; color: var(--text); letter-spacing: 0.05em; }
+.bar-val { font-size: 0.7rem; color: var(--text-dim); font-family: 'Cormorant Garamond', serif; }
+.bar-track { height: 3px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 2px; background: var(--accent, var(--gold)); transition: width 1s ease; }
+
+/* ─── TABLE ──────────────────────────────────────── */
+.data-table-wrap { overflow-x: auto; margin-bottom: 60px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+thead tr { border-bottom: 1px solid rgba(201,169,110,0.2); }
+th {
+  font-size: 0.6rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 400;
+  padding: 12px 16px;
+  text-align: left;
+}
+tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.2s;
+}
+tbody tr:hover { background: rgba(255,255,255,0.03); }
+td { padding: 12px 16px; color: var(--text); }
+td.price { font-family: 'Cormorant Garamond', serif; font-size: 0.9rem; color: var(--gold); }
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.badge-femme { background: rgba(232,164,184,0.15); color: var(--femme); }
+.badge-homme { background: rgba(122,184,216,0.15); color: var(--homme); }
+.badge-enfant { background: rgba(168,216,154,0.15); color: var(--enfant); }
+.badge-general { background: rgba(201,169,110,0.15); color: var(--gold); }
+
+/* ─── PRICE RANGES ───────────────────────────────── */
+.price-ranges {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: rgba(255,255,255,0.05);
+  margin-bottom: 60px;
+}
+.price-range-card {
+  background: var(--dark);
+  padding: 24px 20px;
+  text-align: center;
+}
+.pr-label { font-size: 0.6rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px; }
+.pr-range { font-family: 'Cormorant Garamond', serif; font-size: 1.1rem; color: var(--gold); margin-bottom: 8px; }
+.pr-count { font-size: 1.6rem; font-family: 'Cormorant Garamond', serif; color: #fff; }
+.pr-pct { font-size: 0.65rem; color: var(--text-dim); margin-top: 4px; }
+
+/* ─── EMPTY STATE ────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 80px 40px;
+  color: var(--text-dim);
+}
+.empty-icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.3; }
+.empty-text { font-size: 0.8rem; letter-spacing: 0.1em; }
+
+/* ─── FOOTER ─────────────────────────────────────── */
+footer {
+  padding: 40px 60px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+/* ─── GENDER COLORS ──────────────────────────────── */
+.page-femme  { --accent: var(--femme); }
+.page-homme  { --accent: var(--homme); }
+.page-enfant { --accent: var(--enfant); }
+.page-general, .page-accueil { --accent: var(--gold); }
+
+/* ─── RESPONSIVE ─────────────────────────────────── */
+@media (max-width: 768px) {
+  nav { padding: 0 20px; }
+  .nav-brand span { display: none; }
+  .nav-tab { padding: 8px 12px; font-size: 0.6rem; }
+  .page-content { padding: 30px 20px; }
+  .hero-content { padding: 30px 20px; }
+  .price-ranges { grid-template-columns: repeat(2,1fr); }
+  footer { flex-direction: column; gap: 12px; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="loader-title">Mode CI</div>
+  <div class="loader-bar"></div>
+  <div id="loader-msg">Connexion à la base de données…</div>
+</div>
+
+<!-- NAVIGATION -->
+<nav>
+  <div class="nav-brand">
+    Mode CI
+    <span>Marché de la Mode — Côte d'Ivoire</span>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-page="accueil" onclick="showPage('accueil',this)">
+      <span class="tab-dot" style="background:var(--gold)"></span>Vue Globale
+    </button>
+    <button class="nav-tab" data-page="femme" onclick="showPage('femme',this)">
+      <span class="tab-dot" style="background:var(--femme)"></span>Femme
+    </button>
+    <button class="nav-tab" data-page="homme" onclick="showPage('homme',this)">
+      <span class="tab-dot" style="background:var(--homme)"></span>Homme
+    </button>
+    <button class="nav-tab" data-page="enfant" onclick="showPage('enfant',this)">
+      <span class="tab-dot" style="background:var(--enfant)"></span>Enfant
+    </button>
+    <button class="nav-tab" data-page="general" onclick="showPage('general',this)">
+      <span class="tab-dot" style="background:var(--gold-light)"></span>Général
+    </button>
+  </div>
+  <div class="nav-right">
+    <span id="live-count">—</span>
+    annonces analysées
+  </div>
+</nav>
+
+<!-- ═══════════════ PAGE ACCUEIL ═══════════════ -->
+<div id="page-accueil" class="page active page-accueil">
+  <div class="hero">
+    <div class="hero-bg" style="background-image:url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1920&q=80')"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div class="hero-tag">Analyse de marché · Jiji.co.ci · 2026</div>
+      <h1 class="hero-title">Le Marché de la <em>Mode</em><br>en Côte d'Ivoire</h1>
+      <p class="hero-subtitle">Analyse complète · Femme · Homme · Enfant · Tous segments</p>
+    </div>
+  </div>
+  <div class="page-content">
+    <div class="kpi-grid" id="kpi-accueil"></div>
+
+    <div class="section-header">
+      <h2 class="section-title">Répartition par segment</h2>
+      <div class="section-line"></div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Distribution par Genre</div>
+        <div class="chart-wrap"><canvas id="chart-donut-genre"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Prix Moyen par Genre (FCFA)</div>
+        <div class="chart-wrap"><canvas id="chart-prix-genre"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Distribution des Prix</div>
+        <div class="chart-wrap"><canvas id="chart-prix-dist"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top Villes</div>
+        <div id="bar-villes-global" class="bar-list" style="height:220px;overflow:auto"></div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <h2 class="section-title">Gammes de prix</h2>
+      <div class="section-line"></div>
+    </div>
+    <div class="price-ranges" id="price-ranges-accueil"></div>
+
+    <div class="section-header">
+      <h2 class="section-title">Top 15 — Annonces récentes</h2>
+      <div class="section-line"></div>
+    </div>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Titre</th><th>Prix</th><th>Ville</th><th>Genre</th><th>Sous-cat.</th></tr></thead>
+        <tbody id="table-global"></tbody>
+      </table>
+    </div>
+  </div>
+  <footer><span>ENSEA · AS Data Science · Projet Web Scraping</span><span>Source : jiji.co.ci</span><span id="footer-date"></span></footer>
+</div>
+
+<!-- ═══════════════ PAGE FEMME ═══════════════ -->
+<div id="page-femme" class="page page-femme">
+  <div class="hero">
+    <div class="hero-bg" style="background-image:url('https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1920&q=80')"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div class="hero-tag">Segment · Mode Femme</div>
+      <h1 class="hero-title">Mode <em>Femme</em></h1>
+      <p class="hero-subtitle">Robes · Sacs · Chaussures · Accessoires · Beauté</p>
+    </div>
+  </div>
+  <div class="page-content">
+    <div class="kpi-grid" id="kpi-femme"></div>
+    <div class="charts-grid" id="charts-femme">
+      <div class="chart-card">
+        <div class="chart-title">Top Sous-catégories Femme</div>
+        <div id="bar-subcat-femme" class="bar-list" style="height:220px;overflow:auto"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Distribution des Prix (FCFA)</div>
+        <div class="chart-wrap"><canvas id="chart-prix-femme"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Répartition Géographique</div>
+        <div id="bar-villes-femme" class="bar-list" style="height:220px;overflow:auto"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Gammes de Prix</div>
+        <div class="chart-wrap"><canvas id="chart-gammes-femme"></canvas></div>
+      </div>
+    </div>
+    <div class="section-header">
+      <h2 class="section-title">Annonces Mode Femme</h2>
+      <div class="section-line"></div>
+    </div>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Titre</th><th>Prix</th><th>Ville</th><th>Sous-cat.</th></tr></thead>
+        <tbody id="table-femme"></tbody>
+      </table>
+    </div>
+  </div>
+  <footer><span>Mode Femme · Jiji.co.ci</span><span id="footer-femme-count">—</span></footer>
+</div>
+
+<!-- ═══════════════ PAGE HOMME ═══════════════ -->
+<div id="page-homme" class="page page-homme">
+  <div class="hero">
+    <div class="hero-bg" style="background-image:url('https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?auto=format&fit=crop&w=1920&q=80')"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div class="hero-tag">Segment · Mode Homme</div>
+      <h1 class="hero-title">Mode <em>Homme</em></h1>
+      <p class="hero-subtitle">Costumes · Vestes · Chemises · Chaussures · Accessoires</p>
+    </div>
+  </div>
+  <div class="page-content">
+    <div class="kpi-grid" id="kpi-homme"></div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Top Sous-catégories Homme</div>
+        <div id="bar-subcat-homme" class="bar-list" style="height:220px;overflow:auto"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Distribution des Prix (FCFA)</div>
+        <div class="chart-wrap"><canvas id="chart-prix-homme"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Répartition Géographique</div>
+        <div id="bar-villes-homme" class="bar-list" style="height:220px;overflow:auto"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Gammes de Prix</div>
+        <div class="chart-wrap"><canvas id="chart-gammes-homme"></canvas></div>
+      </div>
+    </div>
+    <div class="section-header">
+      <h2 class="section-title">Annonces Mode Homme</h2>
+      <div class="section-line"></div>
+    </div>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Titre</th><th>Prix</th><th>Ville</th><th>Sous-cat.</th></tr></thead>
+        <tbody id="table-homme"></tbody>
+      </table>
+    </div>
+  </div>
+  <footer><span>Mode Homme · Jiji.co.ci</span><span id="footer-homme-count">—</span></footer>
+</div>
+
+<!-- ═══════════════ PAGE ENFANT ═══════════════ -->
+<div id="page-enfant" class="page page-enfant">
+  <div class="hero">
+    <div class="hero-bg" style="background-image:url('https://images.unsplash.com/photo-1519457431-44ccd64a579b?auto=format&fit=crop&w=1920&q=80')"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div class="hero-tag">Segment · Mode Enfant</div>
+      <h1 class="hero-title">Mode <em>Enfant</em></h1>
+      <p class="hero-subtitle">Bébé · Petite fille · Petit garçon · Junior</p>
+    </div>
+  </div>
+  <div class="page-content">
+    <div class="kpi-grid" id="kpi-enfant"></div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Top Sous-catégories Enfant</div>
+        <div id="bar-subcat-enfant" class="bar-list" style="height:220px;overflow:auto"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Distribution des Prix (FCFA)</div>
+        <div class="chart-wrap"><canvas id="chart-prix-enfant"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Répartition Géographique</div>
+        <div id="bar-villes-enfant" class="bar-list" style="height:220px;overflow:auto"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Gammes de Prix</div>
+        <div class="chart-wrap"><canvas id="chart-gammes-enfant"></canvas></div>
+      </div>
+    </div>
+    <div class="section-header">
+      <h2 class="section-title">Annonces Mode Enfant</h2>
+      <div class="section-line"></div>
+    </div>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Titre</th><th>Prix</th><th>Ville</th><th>Sous-cat.</th></tr></thead>
+        <tbody id="table-enfant"></tbody>
+      </table>
+    </div>
+  </div>
+  <footer><span>Mode Enfant · Jiji.co.ci</span><span id="footer-enfant-count">—</span></footer>
+</div>
+
+<!-- ═══════════════ PAGE GÉNÉRAL ═══════════════ -->
+<div id="page-general" class="page page-general">
+  <div class="hero">
+    <div class="hero-bg" style="background-image:url('https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1920&q=80')"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div class="hero-tag">Segment · Mode Générale</div>
+      <h1 class="hero-title">Mode <em>Générale</em></h1>
+      <p class="hero-subtitle">Beauté · Accessoires · Prêt-à-porter · Tous styles</p>
+    </div>
+  </div>
+  <div class="page-content">
+    <div class="kpi-grid" id="kpi-general"></div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Top Sous-catégories</div>
+        <div id="bar-subcat-general" class="bar-list" style="height:220px;overflow:auto"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Distribution des Prix (FCFA)</div>
+        <div class="chart-wrap"><canvas id="chart-prix-general"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Répartition Géographique</div>
+        <div id="bar-villes-general" class="bar-list" style="height:220px;overflow:auto"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Gammes de Prix</div>
+        <div class="chart-wrap"><canvas id="chart-gammes-general"></canvas></div>
+      </div>
+    </div>
+    <div class="section-header">
+      <h2 class="section-title">Annonces Mode Générale</h2>
+      <div class="section-line"></div>
+    </div>
+    <div class="data-table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Titre</th><th>Prix</th><th>Ville</th><th>Sous-cat.</th></tr></thead>
+        <tbody id="table-general"></tbody>
+      </table>
+    </div>
+  </div>
+  <footer><span>Mode Générale · Jiji.co.ci</span><span id="footer-general-count">—</span></footer>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════
+const API_BASE = 'http://localhost:5000';
+const COLORS = {
+  femme:   '#e8a4b8',
+  homme:   '#7ab8d8',
+  enfant:  '#a8d89a',
+  general: '#c9a96e',
+  gold:    '#c9a96e',
+};
+
+Chart.defaults.color = '#9a9080';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+Chart.defaults.font.family = "'Raleway', sans-serif";
+Chart.defaults.font.size = 11;
+
+// ═══════════════════════════════════════════════
+// CLASSIFICATION GENRE
+// ═══════════════════════════════════════════════
+const FEMME_KW = ['femme','féminin','feminin','lady','robe','jupe','soutien','lingerie',
+  'bijou','collier','bague','boucle','vernis','blouse','tunique','maquillage','makeup',
+  'parfum','beauté','beaute','pagne femme','tailleur','ensemble femme','sac à main',
+  'escarpins','talons','corset','bustier','legging','minijupe','chapeau femme'];
+const HOMME_KW = ['homme','masculin','monsieur','costume','veste','chemise','cravate',
+  'complet','mocassin','derby','smoking','blazer','boubou homme','ensemble homme',
+  'luxe homme','pantalon homme','polo','jeans homme','chapeau homme'];
+const ENFANT_KW = ['enfant','bébé','bebe','fille','garçon','garcon','kid','junior',
+  'école','ecole','nourrisson','petite fille','petit garçon','pyjama','layette'];
+
+function classifyGender(item) {
+  // 1. Champ explicite (nouvelles données)
+  const gField = (item.gender_category||'').toLowerCase();
+  if (['femme','homme','enfant','general'].includes(gField)) return gField;
+
+  // 2. Analyse du lien URL
+  const link = (item.link||'').toLowerCase();
+  if (link.includes('womens-fashion') || link.includes('/women')) return 'femme';
+  if (link.includes('mens-fashion')   || link.includes('/men'))   return 'homme';
+  if (link.includes('kids-fashion')   || link.includes('/kids'))  return 'enfant';
+
+  // 3. Analyse du titre + slug URL
+  const text = ((item.title||'')+' '+link).toLowerCase();
+  for (const kw of FEMME_KW)   if (text.includes(kw)) return 'femme';
+  for (const kw of HOMME_KW)   if (text.includes(kw)) return 'homme';
+  for (const kw of ENFANT_KW)  if (text.includes(kw)) return 'enfant';
+
+  return 'general';
+}
+
+function classifySubcat(title) {
+  const t = (title||'').toLowerCase();
+  const rules = [
+    ['robe',       ['robe','robe de','soirée']],
+    ['chaussure',  ['chaussure','basket','sneaker','talon','escarpin','mocassin','derby','botte','sandale']],
+    ['sac',        ['sac','pochette','cabas','cartable','valise']],
+    ['veste',      ['veste','blazer','manteau','veston','smoking']],
+    ['boubou',     ['boubou','kaftan','caftane']],
+    ['pagne',      ['pagne','wax','tissu','ankara']],
+    ['accessoire', ['bracelet','collier','boucle','ceinture','chapeau','lunettes','écharpe','cravate','montre']],
+    ['bijou',      ['bijou','or ','argent','diamant','perle']],
+    ['parfum',     ['parfum','cologne','eau de']],
+    ['maquillage', ['maquillage','makeup','fond de teint','rouge à lèvres','mascara']],
+    ['costume',    ['costume','complet','tuxedo']],
+    ['chemise',    ['chemise','polo','t-shirt','tee-shirt']],
+  ];
+  for (const [cat, kws] of rules) {
+    for (const kw of kws) if (t.includes(kw)) return cat;
+  }
+  return 'autre';
+}
+
+// ═══════════════════════════════════════════════
+// DATA LOADING
+// ═══════════════════════════════════════════════
+let ALL_DATA = [];
+
+async function loadAllData() {
+  setLoaderMsg('Chargement des annonces…');
+  let all = [], page = 1, total = null;
+  try {
+    while (true) {
+      const resp = await fetch(`${API_BASE}/api/data/?page=${page}&per_page=100`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const json = await resp.json();
+
+      // Normaliser selon structure Flask-RestX
+      const items = json.items || json.data || json.annonces || (Array.isArray(json) ? json : []);
+      if (!items.length) break;
+
+      all = all.concat(items);
+      if (total === null) total = json.total || json.count || null;
+      setLoaderMsg(`Chargement… ${all.length}${total ? '/'+total : ''} annonces`);
+      if (total && all.length >= total) break;
+      if (items.length < 100) break;
+      page++;
+    }
+  } catch(e) {
+    console.warn('API indisponible, tentative via /api/data/stats', e);
+    // Fallback: essayer stats
+    try {
+      const s = await fetch(`${API_BASE}/api/data/stats`);
+      if (s.ok) { /* stats only, no items */ }
+    } catch {}
+  }
+
+  // Enrichir avec genre et sous-catégorie
+  ALL_DATA = all.map(item => ({
+    ...item,
+    _gender:  classifyGender(item),
+    _subcat:  item.subcategory || classifySubcat(item.title),
+    _price:   parseFloat(item.price_value) || null,
+    _city:    (item.city || item.location || '').split(',')[0].split('/')[0].trim() || 'Inconnue',
+  }));
+
+  return ALL_DATA;
+}
+
+function setLoaderMsg(msg) {
+  const el = document.getElementById('loader-msg');
+  if (el) el.textContent = msg;
+}
+
+// ═══════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════
+function avg(arr) {
+  const nums = arr.filter(Boolean);
+  return nums.length ? nums.reduce((a,b)=>a+b,0)/nums.length : 0;
+}
+function fmt(n) {
+  if (!n && n!==0) return '—';
+  if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (n >= 1e3) return Math.round(n).toLocaleString('fr-FR');
+  return Math.round(n).toString();
+}
+function fmtPrice(p) {
+  if (!p && p!==0) return '—';
+  return Math.round(p).toLocaleString('fr-FR') + ' FCFA';
+}
+function topN(arr, n=8) {
+  const cnt = {};
+  arr.filter(Boolean).forEach(v => cnt[v] = (cnt[v]||0)+1);
+  return Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,n);
+}
+function priceRanges(items) {
+  const prices = items.map(i=>i._price).filter(p=>p&&p>0);
+  return [
+    { label: 'Entrée de gamme', range: '< 5 000', count: prices.filter(p=>p<5000).length },
+    { label: 'Milieu de gamme', range: '5 000 – 25 000', count: prices.filter(p=>p>=5000&&p<25000).length },
+    { label: 'Premium',         range: '25 000 – 100 000', count: prices.filter(p=>p>=25000&&p<100000).length },
+    { label: 'Luxe',            range: '> 100 000', count: prices.filter(p=>p>=100000).length },
+  ];
+}
+function topCity(items) {
+  const cnt = {};
+  items.forEach(i => { const c = i._city; if(c&&c!=='Inconnue') cnt[c]=(cnt[c]||0)+1; });
+  return Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
+}
+
+// ═══════════════════════════════════════════════
+// KPI RENDERING
+// ═══════════════════════════════════════════════
+function renderKPIs(containerId, items, accent, extraKPIs=[]) {
+  const prices = items.map(i=>i._price).filter(p=>p&&p>0);
+  const avgPrice = avg(prices);
+  const maxP = Math.max(...prices,0);
+  const minP = prices.length ? Math.min(...prices) : 0;
+  const city = topCity(items);
+  const subcats = topN(items.map(i=>i._subcat),1);
+  const topSubcat = subcats[0]?.[0] || '—';
+  const withPrice = prices.length;
+
+  const base = [
+    { icon:'📦', label:'Total Annonces', value: fmt(items.length), unit:'', sub: 'collectées sur Jiji.ci' },
+    { icon:'💰', label:'Prix Moyen', value: fmt(avgPrice), unit:' FCFA', sub: `${withPrice} annonces avec prix` },
+    { icon:'📍', label:'Ville Principale', value: city, unit:'', sub: 'plus grande concentration' },
+    { icon:'🏆', label:'Catégorie Leader', value: topSubcat.charAt(0).toUpperCase()+topSubcat.slice(1), unit:'', sub: 'sous-catégorie dominante' },
+    { icon:'📈', label:'Prix Maximum', value: fmt(maxP), unit:' FCFA', sub: 'annonce la plus chère' },
+    { icon:'📉', label:'Prix Minimum', value: minP?fmt(minP):'—', unit: minP?' FCFA':'', sub: 'annonce la moins chère' },
+    ...extraKPIs,
+  ];
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = base.map(k=>`
+    <div class="kpi-card" style="--accent:${accent}">
+      <div class="kpi-icon">${k.icon}</div>
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}<span class="kpi-unit">${k.unit}</span></div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════
+// BAR LIST
+// ═══════════════════════════════════════════════
+function renderBarList(containerId, entries, accent, total) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!entries.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">Données insuffisantes</div></div>'; return; }
+  const max = entries[0][1];
+  el.innerHTML = `<ul class="bar-list">${entries.map(([name,cnt])=>`
+    <li class="bar-item">
+      <div class="bar-header">
+        <span class="bar-name">${name.charAt(0).toUpperCase()+name.slice(1)}</span>
+        <span class="bar-val">${cnt}${total?' ('+Math.round(cnt/total*100)+'%)':''}</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${Math.round(cnt/max*100)}%;background:${accent}"></div>
+      </div>
+    </li>
+  `).join('')}</ul>`;
+}
+
+// ═══════════════════════════════════════════════
+// PRICE RANGES
+// ═══════════════════════════════════════════════
+function renderPriceRanges(containerId, items) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const total = items.filter(i=>i._price&&i._price>0).length || 1;
+  const ranges = priceRanges(items);
+  el.innerHTML = ranges.map(r=>`
+    <div class="price-range-card">
+      <div class="pr-label">${r.label}</div>
+      <div class="pr-range">${r.range} FCFA</div>
+      <div class="pr-count">${r.count}</div>
+      <div class="pr-pct">${Math.round(r.count/total*100)}% des annonces</div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════
+// TABLE
+// ═══════════════════════════════════════════════
+function renderTable(tbodyId, items, showGender=false) {
+  const el = document.getElementById(tbodyId);
+  if (!el) return;
+  const rows = items.slice(0,20);
+  if (!rows.length) { el.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-dim)">Aucune donnée disponible</td></tr>`; return; }
+  el.innerHTML = rows.map((item,i)=>{
+    const g = item._gender;
+    const badge = showGender ? `<span class="badge badge-${g}">${g}</span>` : `<span class="badge badge-${g}">${item._subcat||'—'}</span>`;
+    return `<tr>
+      <td style="color:var(--text-dim)">${i+1}</td>
+      <td>${(item.title||'—').slice(0,55)}${(item.title||'').length>55?'…':''}</td>
+      <td class="price">${item._price ? fmtPrice(item._price) : '—'}</td>
+      <td>${item._city}</td>
+      ${showGender ? `<td><span class="badge badge-${g}">${g}</span></td>` : ''}
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// CHART HELPERS
+// ═══════════════════════════════════════════════
+const charts = {};
+function makeChart(id, config) {
+  if (charts[id]) { charts[id].destroy(); }
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  charts[id] = new Chart(canvas, config);
+}
+
+function priceHistogram(id, items, color) {
+  const prices = items.map(i=>i._price).filter(p=>p&&p>0);
+  if (!prices.length) return;
+  const bins = [0,5000,10000,20000,50000,100000,200000,Infinity];
+  const labels = ['<5k','5-10k','10-20k','20-50k','50-100k','100-200k','>200k'];
+  const counts = labels.map((_,i) => prices.filter(p=>p>=bins[i]&&p<bins[i+1]).length);
+  makeChart(id, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{ data:counts, backgroundColor: color+'66', borderColor: color, borderWidth:1 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{
+        y:{grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#9a9080'}},
+        x:{grid:{display:false}, ticks:{color:'#9a9080'}}
+      }
+    }
+  });
+}
+
+function gammesDoughnut(id, items, color) {
+  const total = items.filter(i=>i._price&&i._price>0).length || 1;
+  const ranges = priceRanges(items);
+  makeChart(id, {
+    type:'doughnut',
+    data:{
+      labels: ranges.map(r=>r.label),
+      datasets:[{
+        data: ranges.map(r=>r.count),
+        backgroundColor:['#5a7a5a88','#7a9a5a88','#c9a96e88','#e8a4b888'],
+        borderColor:['#5a7a5a','#7a9a5a','#c9a96e','#e8a4b8'],
+        borderWidth:1
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'right', labels:{color:'#9a9080',boxWidth:10,padding:8,font:{size:10}} } },
+      cutout:'60%'
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════
+// RENDER ALL PAGES
+// ═══════════════════════════════════════════════
+function renderAll(data) {
+  const byGender = {
+    femme:   data.filter(i=>i._gender==='femme'),
+    homme:   data.filter(i=>i._gender==='homme'),
+    enfant:  data.filter(i=>i._gender==='enfant'),
+    general: data.filter(i=>i._gender==='general'),
+  };
+
+  // Count total
+  document.getElementById('live-count').textContent = fmt(data.length);
+  document.getElementById('footer-date').textContent = new Date().toLocaleDateString('fr-FR');
+
+  // ── ACCUEIL ──
+  const genderCounts = Object.entries(byGender).map(([g,arr])=>[g,arr.length]);
+  const genderAvg    = Object.entries(byGender).map(([g,arr])=>[g, Math.round(avg(arr.map(i=>i._price).filter(Boolean)))]);
+
+  const totalWithPrice = data.filter(i=>i._price&&i._price>0).length;
+  renderKPIs('kpi-accueil', data, COLORS.gold, [
+    { icon:'👗', label:'Mode Femme',  value:fmt(byGender.femme.length),   unit:'', sub:`${Math.round(byGender.femme.length/data.length*100)||0}% du total` },
+    { icon:'👔', label:'Mode Homme',  value:fmt(byGender.homme.length),   unit:'', sub:`${Math.round(byGender.homme.length/data.length*100)||0}% du total` },
+    { icon:'🧒', label:'Mode Enfant', value:fmt(byGender.enfant.length),  unit:'', sub:`${Math.round(byGender.enfant.length/data.length*100)||0}% du total` },
+    { icon:'✨', label:'Mode Générale',value:fmt(byGender.general.length),unit:'', sub:`${Math.round(byGender.general.length/data.length*100)||0}% du total` },
+  ]);
+
+  // Donut genre
+  makeChart('chart-donut-genre', {
+    type:'doughnut',
+    data:{
+      labels:['Femme','Homme','Enfant','Général'],
+      datasets:[{
+        data:genderCounts.map(e=>e[1]),
+        backgroundColor:['#e8a4b866','#7ab8d866','#a8d89a66','#c9a96e66'],
+        borderColor:['#e8a4b8','#7ab8d8','#a8d89a','#c9a96e'],
+        borderWidth:1
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'right', labels:{color:'#9a9080',boxWidth:10,padding:8,font:{size:10}} } },
+      cutout:'55%'
+    }
+  });
+
+  // Bar prix par genre
+  makeChart('chart-prix-genre', {
+    type:'bar',
+    data:{
+      labels:['Femme','Homme','Enfant','Général'],
+      datasets:[{
+        data:genderAvg.map(e=>e[1]),
+        backgroundColor:['#e8a4b844','#7ab8d844','#a8d89a44','#c9a96e44'],
+        borderColor:['#e8a4b8','#7ab8d8','#a8d89a','#c9a96e'],
+        borderWidth:1
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{
+        y:{grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#9a9080', callback:v=>v.toLocaleString('fr-FR')}},
+        x:{grid:{display:false}, ticks:{color:'#9a9080'}}
+      }
+    }
+  });
+
+  priceHistogram('chart-prix-dist', data, COLORS.gold);
+  renderBarList('bar-villes-global', topN(data.map(i=>i._city)), COLORS.gold, data.length);
+  renderPriceRanges('price-ranges-accueil', data);
+  renderTable('table-global', data.sort((a,b)=>(b._price||0)-(a._price||0)), true);
+
+  // ── FEMME ──
+  renderSegmentPage('femme', byGender.femme, COLORS.femme);
+  // ── HOMME ──
+  renderSegmentPage('homme', byGender.homme, COLORS.homme);
+  // ── ENFANT ──
+  renderSegmentPage('enfant', byGender.enfant, COLORS.enfant);
+  // ── GENERAL ──
+  renderSegmentPage('general', byGender.general, COLORS.gold);
+}
+
+function renderSegmentPage(gender, items, color) {
+  // Footer count
+  const fc = document.getElementById(`footer-${gender}-count`);
+  if (fc) fc.textContent = `${fmt(items.length)} annonces`;
+
+  if (!items.length) {
+    // Empty state
+    const kpiEl = document.getElementById(`kpi-${gender}`);
+    if (kpiEl) kpiEl.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🔍</div><div class="empty-text">Aucune donnée disponible pour ce segment.<br>Relancez un scraping via POST /api/scrape/</div></div>`;
+    return;
+  }
+
+  renderKPIs(`kpi-${gender}`, items, color);
+  renderBarList(`bar-subcat-${gender}`, topN(items.map(i=>i._subcat)), color, items.length);
+  renderBarList(`bar-villes-${gender}`, topN(items.map(i=>i._city)), color, items.length);
+  priceHistogram(`chart-prix-${gender}`, items, color);
+  gammesDoughnut(`chart-gammes-${gender}`, items, color);
+  renderTable(`table-${gender}`, items.sort((a,b)=>(b._price||0)-(a._price||0)), false);
+}
+
+// ═══════════════════════════════════════════════
+// PAGE NAVIGATION
+// ═══════════════════════════════════════════════
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  const page = document.getElementById('page-'+name);
+  if (page) page.classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+async function init() {
+  try {
+    const data = await loadAllData();
+    setLoaderMsg('Analyse en cours…');
+    await new Promise(r=>setTimeout(r,400));
+    renderAll(data);
+    setLoaderMsg(data.length + ' annonces analysées ✓');
+    await new Promise(r=>setTimeout(r,500));
+    document.getElementById('loader').classList.add('hidden');
+  } catch(e) {
+    setLoaderMsg('Erreur : ' + e.message + ' — Vérifiez que Docker est lancé');
+    console.error(e);
+    setTimeout(()=>{ document.getElementById('loader').classList.add('hidden'); }, 3000);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

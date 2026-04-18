@@ -1,38 +1,29 @@
 """
-spider.py — Scraper Jiji.ci : Mode & Vêtements en Côte d'Ivoire
+spider.py — Scraper Jiji.ci — Mode en Côte d'Ivoire
 ENSEA AS Data Science — Projet Web Scraping
-Respect éthique : User-Agent identifié, délai >= 1s, max 500 items
+S�lecteur corrigé : a.qa-advert-list-item
 """
 
 import requests
 from bs4 import BeautifulSoup
 import json
-import time
 import logging
+import time
 import random
 from datetime import datetime
-from typing import Optional
 
-# Configuration logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-# ─── Configuration ────────────────────────────────────────────────────────────
-BASE_URL = "https://jiji.co.ci"
+BASE_URL  = "https://jiji.co.ci"
+MAX_PAGES = 10
+MAX_ITEMS = 500
 
-# Toutes les catégories mode visibles sur le site
 SEARCH_URLS = [
-    "https://jiji.co.ci/womens-fashion",     # Mode Femme
-    "https://jiji.co.ci/mens-fashion",        # Mode Homme
-    "https://jiji.co.ci/kids-fashion",        # Mode Bébé & Enfant
-    "https://jiji.co.ci/fashion-and-beauty",  # Mode général
+    ("https://jiji.co.ci/womens-fashion",     "femme"),
+    ("https://jiji.co.ci/mens-fashion",       "homme"),
+    ("https://jiji.co.ci/fashion-and-beauty", "general"),
 ]
-
-# Pour compatibilité avec le reste du code
-SEARCH_URL = SEARCH_URLS[0]
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -44,169 +35,138 @@ HEADERS = {
     "X-Scraper-Info": "ENSEA Educational Project - Web Scraping AS Data Science",
 }
 
-MIN_DELAY = 1.0   # secondes minimum entre requêtes (éthique)
-MAX_DELAY = 2.5   # secondes maximum
-MAX_ITEMS = 500   # limite éthique du projet
-MAX_PAGES = 20    # sécurité : max de pages à parcourir
+FEMME_KW  = ['femme','féminin','feminin','lady','robe','jupe','soutien','lingerie',
+             'bijou','collier','bague','boucle','vernis','blouse','tunique',
+             'maquillage','makeup','parfum','beauté','beaute','tailleur',
+             'ensemble femme','escarpin','talon','corset','bustier','legging']
+HOMME_KW  = ['homme','masculin','monsieur','costume','veste','chemise','cravate',
+             'complet','mocassin','derby','smoking','blazer','boubou homme',
+             'ensemble homme','pantalon homme','polo','jeans homme']
+ENFANT_KW = ['enfant','bébé','bebe','fille','garçon','garcon','kid','junior',
+             'école','ecole','nourrisson','petite fille','petit garçon','layette']
 
 
-def get_page(url: str, retries: int = 3) -> Optional[BeautifulSoup]:
-    """Récupère une page HTML avec gestion des erreurs et retry."""
-    for attempt in range(retries):
+def classify_gender(title: str, link: str, source_gender: str) -> str:
+    lk = (link or '').lower()
+    if 'womens-fashion' in lk: return 'femme'
+    if 'mens-fashion'   in lk: return 'homme'
+    if 'kids-fashion'   in lk: return 'enfant'
+    text = ((title or '') + ' ' + lk).lower()
+    for kw in FEMME_KW:
+        if kw in text: return 'femme'
+    for kw in HOMME_KW:
+        if kw in text: return 'homme'
+    for kw in ENFANT_KW:
+        if kw in text: return 'enfant'
+    return source_gender
+
+
+def get_page(url: str, retries: int = 3) -> BeautifulSoup | None:
+    for attempt in range(1, retries + 1):
         try:
-            delay = random.uniform(MIN_DELAY, MAX_DELAY)
+            delay = random.uniform(1.0, 2.5)
             time.sleep(delay)
-
             response = requests.get(url, headers=HEADERS, timeout=15)
-            response.raise_for_status()
-
-            logger.info(f"Page récupérée : {url} (délai: {delay:.1f}s)")
-            return BeautifulSoup(response.text, "html.parser")
-
-        except requests.exceptions.HTTPError as e:
-            logger.warning(f"Erreur HTTP {e.response.status_code} — tentative {attempt+1}/{retries}")
-            if e.response.status_code == 429:
-                time.sleep(10)  # Rate limit : attendre 10s
-        except requests.exceptions.ConnectionError:
-            logger.warning(f"Erreur connexion — tentative {attempt+1}/{retries}")
-            time.sleep(5)
-        except requests.exceptions.Timeout:
-            logger.warning(f"Timeout — tentative {attempt+1}/{retries}")
-
+            if response.status_code == 200:
+                logger.info(f"Page récupérée : {url} (délai: {delay:.1f}s)")
+                return BeautifulSoup(response.text, "lxml")
+            else:
+                logger.warning(f"Erreur HTTP {response.status_code} — tentative {attempt}/{retries}")
+        except Exception as e:
+            logger.warning(f"Exception tentative {attempt}/{retries} : {e}")
     logger.error(f"Impossible de récupérer la page après {retries} tentatives : {url}")
     return None
 
 
-def parse_listing_page(soup: BeautifulSoup) -> list:
-    """
-    Extrait les annonces d'une page de listing Jiji.ci.
-    Retourne une liste de dictionnaires (données brutes).
-    """
+def extract_item_data(tag, source_gender: str) -> dict | None:
+    try:
+        href = tag.get("href", "")
+        link = (BASE_URL + href) if href.startswith("/") else href
+
+        title_el = (
+            tag.select_one(".b-advert-title-inner")
+            or tag.select_one("[class*='title']")
+            or tag.select_one("p")
+        )
+        title = title_el.get_text(strip=True) if title_el else None
+
+        price_el = (
+            tag.select_one(".qa-advert-price")
+            or tag.select_one("[class*='price']")
+        )
+        price_raw = price_el.get_text(strip=True) if price_el else None
+
+        loc_el = (
+            tag.select_one(".b-list-advert__region__text")
+            or tag.select_one("[class*='region']")
+            or tag.select_one("[class*='location']")
+        )
+        location = loc_el.get_text(strip=True) if loc_el else None
+
+        img_el = tag.select_one("img[src], img[data-src]")
+        image_url = None
+        if img_el:
+            src = img_el.get("src") or img_el.get("data-src") or ""
+            if src and not src.startswith("data:"):
+                image_url = src
+
+        gender = classify_gender(title, link, source_gender)
+
+        return {
+            "item_id":         None,
+            "title":           title,
+            "price_raw":       price_raw,
+            "location":        location,
+            "link":            link,
+            "image_url":       image_url,
+            "published_at":    None,
+            "scraped_at":      datetime.now().isoformat(),
+            "category":        "mode",
+            "gender_category": gender,
+            "source":          "jiji.co.ci",
+        }
+    except Exception as e:
+        logger.debug(f"Erreur extraction item : {e}")
+        return None
+
+
+def parse_listing_page(soup: BeautifulSoup, source_gender: str) -> list[dict]:
+    # Sélecteur principal mis à jour
+    tags = soup.select("a.qa-advert-list-item")
+    if not tags:
+        tags = soup.select("a[class*='b-list-advert-base']")
+    if not tags:
+        tags = soup.select("a[class*='advert']")
+    if not tags:
+        tags = [a for a in soup.find_all("a", href=True)
+                if a.get("href","").startswith("/") and a.get("href","").count("/") >= 3]
+
     items = []
+    for tag in tags:
+        item = extract_item_data(tag, source_gender)
+        if item and item.get("title"):
+            items.append(item)
 
-    # Sélecteur principal des cartes d'annonce sur Jiji.ci
-    cards = soup.select("article.b-list-advert__item-wrapper, div.b-list-advert__item")
-
-    if not cards:
-        cards = soup.select("[class*='b-list-advert']")
-
-    logger.info(f"{len(cards)} annonces trouvées sur cette page")
-
-    for card in cards:
-        try:
-            item = extract_item_data(card)
-            if item:
-                items.append(item)
-        except Exception as e:
-            logger.debug(f"Erreur parsing d'une carte : {e}")
-            continue
-
+    logger.info(f"{len(items)} annonces trouvées sur cette page")
     return items
 
 
-def extract_item_data(card) -> Optional[dict]:
-    """Extrait les données d'une carte d'annonce individuelle."""
-
-    # Titre de l'annonce
-    title_el = (
-        card.select_one("div.b-list-advert-base__item-title") or
-        card.select_one("[class*='title']") or
-        card.select_one("h3") or
-        card.select_one("h2")
-    )
-    title = title_el.get_text(strip=True) if title_el else None
-
-    # Prix
-    price_el = (
-        card.select_one("div.b-list-advert__price-box") or
-        card.select_one("[class*='price']") or
-        card.select_one("span.price")
-    )
-    price_raw = price_el.get_text(strip=True) if price_el else None
-
-    # Localisation
-    location_el = (
-        card.select_one("span.b-list-advert__region__text") or
-        card.select_one("[class*='region']") or
-        card.select_one("[class*='location']")
-    )
-    location = location_el.get_text(strip=True) if location_el else None
-
-    # Lien vers l'annonce
-    link_el = card.select_one("a[href]")
-    link = BASE_URL + link_el["href"] if link_el and link_el.get("href", "").startswith("/") else None
-
-    # Image (URL)
-    img_el = card.select_one("img[src]")
-    image_url = img_el.get("src") or img_el.get("data-src") if img_el else None
-
-    # ID unique extrait du lien
-    item_id = None
-    if link:
-        parts = link.rstrip("/").split("--")
-        if len(parts) > 1:
-            item_id = parts[-1].split("?")[0]
-
-    # Date de publication
-    date_el = card.select_one("[class*='date'], time")
-    published_at = date_el.get_text(strip=True) if date_el else None
-
-    # Ignorer les cartes sans titre ni prix
-    if not title and not price_raw:
-        return None
-
-    return {
-        "item_id":      item_id,
-        "title":        title,
-        "price_raw":    price_raw,
-        "location":     location,
-        "link":         link,
-        "image_url":    image_url,
-        "published_at": published_at,
-        "scraped_at":   datetime.utcnow().isoformat(),
-        "category":     "mode",
-        "source":       "jiji.co.ci",
-    }
-
-
-def get_next_page_url(soup: BeautifulSoup, current_page: int, base_url: str) -> Optional[str]:
-    """Retourne l'URL de la page suivante, ou None si dernière page."""
-    next_btn = soup.select_one("a[rel='next'], a.pagination-next, [class*='next-page']")
-    if next_btn and next_btn.get("href"):
-        href = next_btn["href"]
-        return BASE_URL + href if href.startswith("/") else href
-
-    # Fallback : construction manuelle de l'URL
-    return f"{base_url}?page={current_page + 1}"
-
-
-def scrape_jiji_mode(max_items: int = 500) -> list:
-    """
-    Scrape toutes les catégories mode de Jiji.ci.
-    Parcourt plusieurs catégories ET plusieurs pages par catégorie.
-
-    Args:
-        max_items: Nombre maximum d'annonces (max éthique : 500)
-
-    Returns:
-        Liste de dictionnaires contenant les données brutes
-    """
-    max_items  = min(max_items, MAX_ITEMS)
-    all_items  = []
-    seen_links = set()  # Éviter les doublons inter-catégories
+def scrape_jiji_mode(max_items: int = 500) -> list[dict]:
+    max_items = min(max_items, MAX_ITEMS)
+    all_items = []
+    seen_links = set()
 
     logger.info(f"=== Démarrage scraping Jiji.ci/mode — Objectif: {max_items} items ===")
     logger.info(f"Catégories ciblées : {len(SEARCH_URLS)}")
 
-    for base_url in SEARCH_URLS:
+    for base_url, source_gender in SEARCH_URLS:
         if len(all_items) >= max_items:
             break
 
-        logger.info(f"\n--- Catégorie : {base_url} ---")
+        logger.info(f"\n--- Catégorie : {base_url} (genre: {source_gender}) ---")
         current_page = 1
 
         while len(all_items) < max_items and current_page <= MAX_PAGES:
-            # Construction URL avec pagination
             url = base_url if current_page == 1 else f"{base_url}?page={current_page}"
             logger.info(f"Page {current_page} : {url}")
 
@@ -215,19 +175,18 @@ def scrape_jiji_mode(max_items: int = 500) -> list:
                 logger.warning("Page irrécupérable, passage à la catégorie suivante")
                 break
 
-            page_items = parse_listing_page(soup)
+            page_items = parse_listing_page(soup, source_gender)
             if not page_items:
                 logger.info("Aucun item — fin de cette catégorie")
                 break
 
-            # Dédoublonner par lien entre catégories
             new_items = []
             for item in page_items:
-                link = item.get("link")
-                if link and link in seen_links:
+                lnk = item.get("link")
+                if lnk and lnk in seen_links:
                     continue
-                if link:
-                    seen_links.add(link)
+                if lnk:
+                    seen_links.add(lnk)
                 new_items.append(item)
 
             remaining = max_items - len(all_items)
@@ -240,16 +199,22 @@ def scrape_jiji_mode(max_items: int = 500) -> list:
     return all_items
 
 
-def save_raw_data(items: list, filepath: str = "raw_data.json") -> None:
-    """Sauvegarde les données brutes en JSON."""
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(items, f, ensure_ascii=False, indent=2)
-    logger.info(f"Données brutes sauvegardées : {filepath} ({len(items)} items)")
-
-
 if __name__ == "__main__":
     items = scrape_jiji_mode(max_items=500)
-    save_raw_data(items, "raw_data.json")
+
+    output_file = "raw_data.json"
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
+
+    logger.info(f"Données brutes sauvegardées : {output_file} ({len(items)} items)")
     print(f"\n✅ {len(items)} annonces collectées")
+
+    from collections import Counter
+    genres = Counter(item.get("gender_category", "?") for item in items)
+    print("Répartition par genre :")
+    for genre, count in sorted(genres.items()):
+        print(f"  {genre}: {count}")
+
     if items:
-        print(f"\nExemple d'item :\n{json.dumps(items[0], ensure_ascii=False, indent=2)}")
+        print("\nExemple d'item :")
+        print(json.dumps(items[0], ensure_ascii=False, indent=2))
