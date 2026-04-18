@@ -16,8 +16,8 @@
 
 | Membre | Rôle |
 |--------|------|
-| [Prénom NOM] | Data Engineer (Scraping + Nettoyage) |
-| [Prénom NOM] | Backend/DevOps (API + Docker + Monitoring) |
+| OUEDRAOGO ISSA | Data Engineer (Scraping + Nettoyage) |
+| [TRAORE CLAYERE ABDOULAYE] | Backend/DevOps (API + Docker + Monitoring) |
 
 ---
 
@@ -161,12 +161,6 @@ pytest tests/ -v
 # Avec couverture de code
 pytest tests/ --cov=. --cov-report=html
 ```
-
----
-
-## 📸 Captures d'écran
-
-*(à ajouter après implémentation)*
 
 ---
 
