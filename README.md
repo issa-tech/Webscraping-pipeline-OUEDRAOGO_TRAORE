@@ -17,7 +17,7 @@
 | Membre | Rôle |
 |--------|------|
 | OUEDRAOGO ISSA | Data Engineer (Scraping + Nettoyage) |
-| [TRAORE CLAYERE ABDOULAYE] | Backend/DevOps (API + Docker + Monitoring) |
+| TRAORE CLAYERE ABDOULAYE | Backend/DevOps (API + Docker + Monitoring) |
 
 ---
 
